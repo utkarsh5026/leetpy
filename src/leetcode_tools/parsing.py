@@ -32,6 +32,26 @@ _RUNTIME_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Keys that start a normal metadata field; when seen after `Constraints:` they
+# end the constraint continuation region (so `Summary:` / `Language:` etc.
+# are not swallowed as constraints).
+_METADATA_BLOCK_KEYS = frozenset(
+    {
+        "problem",
+        "title",
+        "number",
+        "url",
+        "difficulty",
+        "topics",
+        "submitted",
+        "language",
+        "runtime",
+        "memory",
+        "constraints",
+        "summary",
+    }
+)
+
 
 def detect_comment_marker(file_path: str | Path) -> str:
     """Return the single-line comment marker for the given file's language.
@@ -94,6 +114,17 @@ def _split_field(payload: str) -> tuple[str, str] | None:
     return key.strip(), value.strip()
 
 
+def _strip_leading_constraint_bullet(payload: str) -> str:
+    """Remove one list marker (`- ` or `* `) from the start of a constraint line.
+
+    Avoids stripping every leading `-` (e.g. inequalities like `-10^9 <= ...`).
+    """
+    s = payload.strip()
+    if len(s) >= 2 and s[0] in "-*" and s[1].isspace():
+        return s[2:].lstrip()
+    return s
+
+
 def parse_metadata_block(file_contents: str) -> ProblemMetadata | None:
     """Parse the LEETCODE METADATA block. Returns None only if the opening marker
     is absent — missing/malformed individual fields are silently skipped because
@@ -116,11 +147,17 @@ def parse_metadata_block(file_contents: str) -> ProblemMetadata | None:
         if not payload:
             in_constraints = False
             continue
-        if in_constraints and indent > 0:
-            constraints.append(payload.lstrip("-* ").strip())
-            continue
-        in_constraints = False
+
         split = _split_field(payload)
+        if in_constraints:
+            if split and split[0].lower() in _METADATA_BLOCK_KEYS:
+                in_constraints = False
+            elif indent > 0:
+                constraints.append(_strip_leading_constraint_bullet(payload))
+                continue
+            else:
+                in_constraints = False
+
         if split is None:
             continue
         key, value = split
