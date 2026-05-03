@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "leetcode-tools"
+version = "0.1.0"
+description = "Tooling for managing leetcode practice solutions and daily analysis files."
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.1",
+    "rich>=13.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+lc = "leetcode_tools.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/leetcode_tools"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "RET"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N802"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=leetcode_tools --cov-report=term-missing --cov-fail-under=80"
+
+[tool.coverage.run]
+source = ["src/leetcode_tools"]
